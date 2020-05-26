@@ -4,16 +4,20 @@ import { writeFile, utils } from 'xlsx'
 
 
 (async () => {
-    let authToken = "<TOKEN>"
-    let org = "<ORG_NAME>"
-    let url = `https://analytics.dev.azure.com/${org}/_odata/v3.0-preview`
+
     let config = {
+        token: process.env.DEVOPS_API_TOKEN,
+        org: process.env.DEVOPS_ORG
+    }
+
+    let url = `https://analytics.dev.azure.com/${config.org}/_odata/v3.0-preview`
+    let httpConfig = {
         headers: new Headers({
-            "Authorization": `Basic ${authToken}`
+            "Authorization": `Basic ${config.token}`
         }),
     }
 
-    let projects = await o(url, config)
+    let projects = await o(url, httpConfig)
     .get('Projects')
     .query({ $select: "ProjectId" });
 
@@ -25,7 +29,7 @@ import { writeFile, utils } from 'xlsx'
 
     }
 
-    let data = await o(url, config)
+    let data = await o(url, httpConfig)
     .get('WorkItems')
     .query({ $select: "WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType"
                 , $filter: `CompletedDateSK ne null and (${projectFilter})`
@@ -34,13 +38,18 @@ import { writeFile, utils } from 'xlsx'
     let sheetAoA = [["ID", "Link", "Name", "Backlog", "InProgress", "Done", "Type", "Project", "Area"]];
     console.log(`Found ${data.length} items`)
     data.forEach(function (item) {
-        sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
+        sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
     })
 
     var ws = utils.aoa_to_sheet(sheetAoA);
     let wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Sheet1");
-    writeFile(wb, "out.xlsx");
+    writeFile(wb, `${config.org}_${currentDate()}.xlsx`);
 
     console.log("END")
 })();
+
+function currentDate(){
+    let today = new Date();
+    return `${today.getFullYear()}${("0" + (today.getMonth() + 1)).slice(-2)}${("0" + today.getDate()).slice(-2)}`;
+}
