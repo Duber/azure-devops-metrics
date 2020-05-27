@@ -16,18 +16,9 @@ import axios from 'axios'
             password: config.token
         }
     }
-    let projectsQuery = `${url}/Projects?$select=ProjectId`
-    let projectsResponse = await axios.get(projectsQuery, axiosOptions)
-    let projects = projectsResponse.data.value
-
-    let projectFilter = ""
-    for(let i=0; i < projects.length; i++){
-        if (i > 0)
-            projectFilter = projectFilter + " or "
-        projectFilter = projectFilter + `ProjectSK eq ${projects[i].ProjectId}`
-
-    }
     
+    let projectFilter = await buildProjectsFilter(url, axiosOptions);
+
     let itemsQuery = `${url}/WorkItems?
     $filter=CompletedDateSK ne null and (${projectFilter})
     &$select=WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType
@@ -58,6 +49,19 @@ import axios from 'axios'
 
     console.log("END")
 })();
+
+async function buildProjectsFilter(url: string, axiosOptions: { auth: { username: string; password: string; }; }) {
+    let projectsQuery = `${url}/Projects?$select=ProjectId`;
+    let projectsResponse = await axios.get(projectsQuery, axiosOptions);
+    let projects = projectsResponse.data.value;
+    let projectFilter = "";
+    for (let i = 0; i < projects.length; i++) {
+        if (i > 0)
+            projectFilter = projectFilter + " or ";
+        projectFilter = projectFilter + `ProjectSK eq ${projects[i].ProjectId}`;
+    }
+    return projectFilter;
+}
 
 function writeExcel(sheetAoA: string[][], config: { token: string; org: string; }) {
     var ws = utils.aoa_to_sheet(sheetAoA);
