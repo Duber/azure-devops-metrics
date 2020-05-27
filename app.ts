@@ -1,7 +1,5 @@
-import { o } from 'odata';
-import { Headers } from 'node-fetch';
 import { writeFile, utils } from 'xlsx'
-
+import axios from 'axios'
 
 (async () => {
 
@@ -11,15 +9,16 @@ import { writeFile, utils } from 'xlsx'
     }
 
     let url = `https://analytics.dev.azure.com/${config.org}/_odata/v3.0-preview`
-    let httpConfig = {
-        headers: new Headers({
-            "Authorization": `Basic ${config.token}`
-        }),
-    }
 
-    let projects = await o(url, httpConfig)
-    .get('Projects')
-    .query({ $select: "ProjectId" });
+    let axiosOptions = {
+        auth: {
+            username: "user",
+            password: config.token
+        }
+    }
+    let projectsQuery = `${url}/Projects?$select=ProjectId`
+    let projectsResponse = await axios.get(projectsQuery, axiosOptions)
+    let projects = projectsResponse.data.value
 
     let projectFilter = ""
     for(let i=0; i < projects.length; i++){
@@ -28,18 +27,31 @@ import { writeFile, utils } from 'xlsx'
         projectFilter = projectFilter + `ProjectSK eq ${projects[i].ProjectId}`
 
     }
+    let itemsQuery = `${url}/WorkItems?
+    $filter=CompletedDateSK ne null and (${projectFilter})
+    &$select=WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType
+    &$expand=Area($select=AreaName),Project($select=ProjectName)`
 
-    let data = await o(url, httpConfig)
-    .get('WorkItems')
-    .query({ $select: "WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType"
-                , $filter: `CompletedDateSK ne null and (${projectFilter})`
-                , $expand: "Area($select=AreaName),Project($select=ProjectName)"});
+
+    let numItems = 0;
+    let itemsResponse = await axios.get(itemsQuery, axiosOptions)
+    let items = itemsResponse.data.value
     
     let sheetAoA = [["ID", "Link", "Name", "Backlog", "InProgress", "Done", "Type", "Project", "Area"]];
-    console.log(`Found ${data.length} items`)
-    data.forEach(function (item) {
+    items.forEach(function (item) {
         sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
     })
+    numItems += items.length
+
+    while(itemsResponse.data.hasOwnProperty("@odata.nextLink")){
+        itemsResponse = await axios.get(itemsResponse.data["@odata.nextLink"], axiosOptions)
+        items = itemsResponse.data.value
+        items.forEach(function (item) {
+            sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
+        })
+        numItems += items.length
+    }
+    console.log(`Found ${numItems} items`)
 
     var ws = utils.aoa_to_sheet(sheetAoA);
     let wb = utils.book_new();
