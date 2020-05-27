@@ -16,31 +16,28 @@ import axios from 'axios'
             password: config.token
         }
     }
-    
-    let projectFilter = await buildProjectsFilter(url, axiosOptions);
 
+    let numItems = 0;
+
+    let projectFilter = await buildProjectsFilter(url, axiosOptions);
+    
     let itemsQuery = `${url}/WorkItems?
     $filter=CompletedDateSK ne null and (${projectFilter})
     &$select=WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType
     &$expand=Area($select=AreaName),Project($select=ProjectName)`
 
 
-    let numItems = 0;
     let itemsResponse = await axios.get(itemsQuery, axiosOptions)
     let items = itemsResponse.data.value
     
     let sheetAoA = [["ID", "Link", "Name", "Backlog", "InProgress", "Done", "Type", "Project", "Area"]];
-    items.forEach(function (item) {
-        sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
-    })
+    addItemsToSheet(items, sheetAoA, config);
     numItems += items.length
 
     while(itemsResponse.data.hasOwnProperty("@odata.nextLink")){
         itemsResponse = await axios.get(itemsResponse.data["@odata.nextLink"], axiosOptions)
         items = itemsResponse.data.value
-        items.forEach(function (item) {
-            sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName])
-        })
+        addItemsToSheet(items, sheetAoA, config)
         numItems += items.length
     }
     console.log(`Found ${numItems} items`)
@@ -49,6 +46,12 @@ import axios from 'axios'
 
     console.log("END")
 })();
+
+function addItemsToSheet(items: any, sheetAoA: string[][], config: { token: string; org: string; }) {
+    items.forEach(function (item) {
+        sheetAoA.push([item.WorkItemId, `https://dev.azure.com/${config.org}/${item.Project.ProjectName}/_workitems/edit/${item.WorkItemId}`, item.Title, item.CreatedDateSK, item.InProgressDateSK, item.CompletedDateSK, item.WorkItemType, item.Project.ProjectName, item.Area.AreaName]);
+    });
+}
 
 async function buildProjectsFilter(url: string, axiosOptions: { auth: { username: string; password: string; }; }) {
     let projectsQuery = `${url}/Projects?$select=ProjectId`;
