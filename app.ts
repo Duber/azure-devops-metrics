@@ -26,17 +26,14 @@ import axios from 'axios'
     &$select=WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType
     &$expand=Area($select=AreaName),Project($select=ProjectName)`
 
-
-    let itemsResponse = await axios.get(itemsQuery, axiosOptions)
-    let items = itemsResponse.data.value
+    let [items, nextLink] = await query(itemsQuery, axiosOptions)
     
     let sheetAoA = [["ID", "Link", "Name", "Backlog", "InProgress", "Done", "Type", "Project", "Area"]];
     addItemsToSheet(items, sheetAoA, config);
     numItems += items.length
 
-    while(itemsResponse.data.hasOwnProperty("@odata.nextLink")){
-        itemsResponse = await axios.get(itemsResponse.data["@odata.nextLink"], axiosOptions)
-        items = itemsResponse.data.value
+    while(nextLink){
+        [items, nextLink] = await query(nextLink, axiosOptions)
         addItemsToSheet(items, sheetAoA, config)
         numItems += items.length
     }
@@ -46,6 +43,11 @@ import axios from 'axios'
 
     console.log("END")
 })();
+
+async function query(query:string, options:any){
+    let itemsResponse = await axios.get(query, options)
+    return [itemsResponse.data.value, itemsResponse.data["@odata.nextLink"]]
+}
 
 function addItemsToSheet(items: any, sheetAoA: string[][], config: { token: string; org: string; }) {
     items.forEach(function (item) {
