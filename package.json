@@ -2,7 +2,7 @@
   "name": "azure-devops-metrics",
   "version": "1.0.0",
   "description": "",
-  "main": "main.ts",
+  "main": "src/app.ts",
   "dependencies": {
     "@types/node": "^14.0.5",
     "axios": "^0.19.2",
