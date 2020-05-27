@@ -27,6 +27,7 @@ import axios from 'axios'
         projectFilter = projectFilter + `ProjectSK eq ${projects[i].ProjectId}`
 
     }
+    
     let itemsQuery = `${url}/WorkItems?
     $filter=CompletedDateSK ne null and (${projectFilter})
     &$select=WorkItemId,Title,CreatedDateSK,InProgressDateSK,CompletedDateSK,WorkItemType
@@ -53,13 +54,17 @@ import axios from 'axios'
     }
     console.log(`Found ${numItems} items`)
 
+    writeExcel(sheetAoA, config);
+
+    console.log("END")
+})();
+
+function writeExcel(sheetAoA: string[][], config: { token: string; org: string; }) {
     var ws = utils.aoa_to_sheet(sheetAoA);
     let wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Sheet1");
     writeFile(wb, `${config.org}_${currentDate()}.xlsx`);
-
-    console.log("END")
-})();
+}
 
 function currentDate(){
     let today = new Date();
