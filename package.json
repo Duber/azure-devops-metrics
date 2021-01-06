@@ -5,7 +5,7 @@
   "main": "src/app.ts",
   "dependencies": {
     "@types/node": "^14.0.5",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "dotenv": "^8.2.0",
     "typescript": "^3.9.3",
     "xlsx": "^0.16.1"
